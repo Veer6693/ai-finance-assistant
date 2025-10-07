@@ -1,0 +1,61 @@
+{
+  "name": "AI Finance Assistant Backend",
+  "description": "AI-Powered Personal Finance Assistant with UPI Integration - Backend API",
+  "image": "heroku/python",
+  "repository": "https://github.com/your-username/ai-finance-assistant",
+  "keywords": ["python", "fastapi", "ai", "finance", "upi", "machine-learning"],
+  "stack": "heroku-22",
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL database URL",
+      "required": true
+    },
+    "SECRET_KEY": {
+      "description": "Secret key for JWT token generation",
+      "generator": "secret"
+    },
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for AI features (optional)",
+      "required": false
+    },
+    "RAZORPAY_API_KEY": {
+      "description": "Razorpay API key for UPI integration",
+      "required": false,
+      "value": "rzp_test_mock_key"
+    },
+    "RAZORPAY_API_SECRET": {
+      "description": "Razorpay API secret for UPI integration",
+      "required": false,
+      "value": "mock_secret_key"
+    },
+    "FRONTEND_URL": {
+      "description": "Frontend URL for CORS configuration",
+      "required": true,
+      "value": "https://your-app.vercel.app"
+    },
+    "PYTHON_VERSION": {
+      "description": "Python version",
+      "value": "3.11.6"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:essential-0",
+      "as": "DATABASE"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "python -c \"from app.utils.database_populator import create_sample_data; create_sample_data()\""
+  }
+}
