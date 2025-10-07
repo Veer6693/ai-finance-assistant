@@ -2,6 +2,20 @@
 
 This guide will help you set up the AI-Powered Personal Finance Assistant on a new system from scratch.
 
+## ⚡ **Quick Start (TL;DR)**
+
+```bash
+git clone https://github.com/Veer6693/ai-finance-assistant.git
+cd ai-finance-assistant
+chmod +x scripts/*.sh
+./scripts/setup.sh
+./scripts/start-all.sh
+```
+
+**Done!** 🎉 Open http://localhost:3000 and login with `test@example.com` / `password123`
+
+---
+
 ## ✅ Files Successfully Pushed to GitHub
 
 **All essential files have been pushed to the repository including:**
@@ -41,6 +55,43 @@ Before setting up the project, ensure you have:
 - **Git** (Check: `git --version`)
 
 ## 🛠️ Complete Setup Commands for New System
+
+### Option 1: 🚀 **Quick Script-Based Setup (Recommended)**
+
+The easiest way to set up the project is using our automated setup scripts:
+
+```bash
+# Clone the repository
+git clone https://github.com/Veer6693/ai-finance-assistant.git
+cd ai-finance-assistant
+
+# Make scripts executable
+chmod +x scripts/*.sh
+
+# Run complete setup (installs all dependencies)
+./scripts/setup.sh
+
+# Start both backend and frontend servers
+./scripts/start-all.sh
+```
+
+**That's it! 🎉** The scripts will:
+- ✅ Create Python virtual environment
+- ✅ Install all Python dependencies
+- ✅ Install all Node.js dependencies
+- ✅ Set up environment configuration
+- ✅ Initialize the database
+- ✅ Start both servers with proper configuration
+
+### **Setup Method Comparison**
+
+| Method | Commands | Time | Error Handling | Recommended For |
+|--------|----------|------|----------------|-----------------|
+| **🚀 Scripts** | 4 commands | ~2-3 min | ✅ Automatic | **Everyone** |
+| 📋 Manual | 10+ commands | ~5-10 min | ⚠️ Manual | Learning/Understanding |
+| 🐳 Docker | 2 commands | ~3-5 min | ✅ Containerized | Production/Isolation |
+
+### Option 2: 📋 **Manual Step-by-Step Setup**
 
 ### 1. Clone the Repository
 
@@ -122,6 +173,46 @@ docker-compose up --build
 ```
 
 This will automatically set up both backend and frontend with all dependencies.
+
+## 📜 **Available Setup Scripts**
+
+The repository includes several helpful scripts in the `scripts/` directory:
+
+### **Setup Scripts**
+```bash
+# Complete project setup (one-time)
+./scripts/setup.sh                # Full setup with all dependencies
+
+# Individual component setup
+./scripts/setup-backend.sh         # Backend only setup
+./scripts/setup-frontend.sh        # Frontend only setup
+```
+
+### **Start Scripts**
+```bash
+# Start both backend and frontend
+./scripts/start-all.sh            # Starts both servers simultaneously
+
+# Start individual components
+./scripts/start-backend.sh        # Backend server only (port 8000)
+./scripts/start-frontend.sh       # Frontend server only (port 3000)
+```
+
+### **Deployment Scripts**
+```bash
+# Deploy to production
+./scripts/deploy-all.sh           # Deploy both backend and frontend
+./scripts/deploy-backend.sh       # Deploy backend only
+./scripts/deploy-frontend.sh      # Deploy frontend only
+```
+
+### **Script Features**
+- ✅ **Automatic dependency detection** and installation
+- ✅ **Error handling** and validation
+- ✅ **Colored output** for better readability
+- ✅ **Progress indicators** and status messages
+- ✅ **Cleanup functions** for graceful shutdown
+- ✅ **Cross-platform compatibility** (Linux/Mac/WSL)
 
 ## 🔧 Development Environment
 
