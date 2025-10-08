@@ -4,7 +4,7 @@ export const budgetService = {
   // Get all budgets for the current user
   async getBudgets() {
     try {
-      return await apiService.get('/budgets');
+      return await apiService.get('/v1/budgets');
     } catch (error) {
       console.error('Error fetching budgets:', error);
       // Return empty array as fallback
@@ -15,7 +15,7 @@ export const budgetService = {
   // Get a specific budget by ID
   async getBudget(id) {
     try {
-      return await apiService.get(`/budgets/${id}`);
+      return await apiService.get(`/v1/budgets/${id}`);
     } catch (error) {
       console.error('Error fetching budget:', error);
       throw error;
@@ -25,7 +25,7 @@ export const budgetService = {
   // Create a new budget
   async createBudget(budgetData) {
     try {
-      return await apiService.post('/budgets', budgetData);
+      return await apiService.post('/v1/budgets', budgetData);
     } catch (error) {
       console.error('Error creating budget:', error);
       throw error;
@@ -35,7 +35,7 @@ export const budgetService = {
   // Update an existing budget
   async updateBudget(id, budgetData) {
     try {
-      return await apiService.put(`/budgets/${id}`, budgetData);
+      return await apiService.put(`/v1/budgets/${id}`, budgetData);
     } catch (error) {
       console.error('Error updating budget:', error);
       throw error;
@@ -45,7 +45,7 @@ export const budgetService = {
   // Delete a budget
   async deleteBudget(id) {
     try {
-      return await apiService.delete(`/budgets/${id}`);
+      return await apiService.delete(`/v1/budgets/${id}`);
     } catch (error) {
       console.error('Error deleting budget:', error);
       throw error;
@@ -55,7 +55,7 @@ export const budgetService = {
   // Get budget performance/analytics
   async getBudgetPerformance(budgetId, period = 'current') {
     try {
-      return await apiService.get(`/budgets/${budgetId}/performance?period=${period}`);
+      return await apiService.get(`/v1/budgets/${budgetId}/performance?period=${period}`);
     } catch (error) {
       console.error('Error fetching budget performance:', error);
       return {};

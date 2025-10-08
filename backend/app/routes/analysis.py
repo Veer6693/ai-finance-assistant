@@ -50,15 +50,15 @@ class AnomalyDetectionResponse(BaseModel):
     anomaly_rate: float
     severity_breakdown: Dict[str, int]
 
-@router.get("/spending/overview")
+@router.get("/spending-summary")
 async def get_spending_analysis(
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    category: Optional[str] = Query(None),
-    compare_with_previous: bool = Query(False),
+    start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    compare_with_previous: bool = Query(False, description="Compare with previous period"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> SpendingAnalysisResponse:
+):
     """Get comprehensive spending analysis"""
     
     # Default to current month if no dates provided
@@ -152,12 +152,66 @@ async def get_spending_analysis(
         comparison_with_previous=comparison
     )
 
-@router.get("/budgets/performance")
-async def get_budget_performance(
+@router.get("/monthly-trends")
+async def get_monthly_trends(
+    months: int = Query(6, description="Number of months to analyze"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> List[BudgetPerformanceResponse]:
-    """Get performance analysis for all active budgets"""
+):
+    """Get monthly spending trends"""
+    
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=months * 30)
+    
+    # Get transactions for the period
+    transactions = db.query(FinanceTransaction).filter(
+        FinanceTransaction.user_id == current_user.id,
+        FinanceTransaction.transaction_date >= start_date,
+        FinanceTransaction.transaction_date <= end_date
+    ).all()
+    
+    if not transactions:
+        return {"trends": [], "total_months": months, "avg_monthly_spending": 0}
+    
+    # Convert to DataFrame for analysis
+    df = pd.DataFrame([{
+        'date': t.transaction_date,
+        'amount': abs(t.amount),
+        'category': t.ai_category or t.merchant_category or 'Other',
+        'month': t.transaction_date.strftime('%Y-%m')
+    } for t in transactions])
+    
+    # Group by month
+    monthly_data = df.groupby('month').agg({
+        'amount': 'sum',
+        'category': 'count'
+    }).reset_index()
+    
+    monthly_data.columns = ['month', 'total_spending', 'transaction_count']
+    
+    # Calculate trends
+    trends = []
+    for _, row in monthly_data.iterrows():
+        trends.append({
+            'month': row['month'],
+            'total_spending': float(row['total_spending']),
+            'transaction_count': int(row['transaction_count']),
+            'avg_transaction_amount': float(row['total_spending'] / row['transaction_count'])
+        })
+    
+    return {
+        "trends": trends,
+        "total_months": len(trends),
+        "avg_monthly_spending": float(monthly_data['total_spending'].mean()) if len(monthly_data) > 0 else 0
+    }
+
+@router.get("/budget-performance")
+async def get_budget_performance(
+    budget_id: Optional[int] = Query(None, description="Specific budget ID"),
+    monthly: bool = Query(True, description="Show monthly performance"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     
     # Get active budgets for current month
     current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -213,13 +267,13 @@ async def get_budget_performance(
     
     return performance_list
 
-@router.get("/forecast/spending")
+@router.get("/forecasting")
 async def get_spending_forecast(
-    days_ahead: int = Query(30, ge=1, le=90),
-    category: Optional[str] = Query(None),
+    days: int = Query(30, description="Number of days to forecast"),
+    category: Optional[str] = Query(None, description="Category to forecast"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> ForecastResponse:
+):
     """Get spending forecast using LSTM model"""
     
     # Get historical transactions for training/prediction
@@ -269,16 +323,16 @@ async def get_spending_forecast(
         
         # Make predictions
         X, y, daily_data = forecaster.prepare_data(transaction_data)
-        predictions_data = forecaster.predict_future_spending(daily_data, days_ahead)
+        predictions_data = forecaster.predict_future_spending(daily_data, days)
         
         # Generate insights
         insights = [
-            f"Based on your spending patterns, you're projected to spend ₹{predictions_data['total_predicted_spending']:.2f} over the next {days_ahead} days.",
+            f"Based on your spending patterns, you're projected to spend ₹{predictions_data['total_predicted_spending']:.2f} over the next {days} days.",
         ]
         
         # Add category-specific insights
         if predictions_data['predictions']:
-            avg_daily = predictions_data['total_predicted_spending'] / days_ahead
+            avg_daily = predictions_data['total_predicted_spending'] / days
             current_avg = sum(t['amount'] for t in transaction_data[-7:]) / 7  # Last week average
             
             if avg_daily > current_avg * 1.2:
@@ -305,14 +359,13 @@ async def get_spending_forecast(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating forecast: {str(e)}")
 
-@router.get("/anomalies/detection")
-async def detect_spending_anomalies(
-    days_back: int = Query(90, ge=30, le=365),
-    threshold_std: float = Query(2.5, ge=1.0, le=5.0),
+@router.get("/anomalies")
+async def detect_anomalies(
+    days_back: int = Query(30, description="Number of days to analyze"),
+    sensitivity: float = Query(0.95, description="Anomaly detection sensitivity (0.5-0.99)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> AnomalyDetectionResponse:
-    """Detect spending anomalies using statistical and ML methods"""
+):
     
     # Get historical transactions
     start_date = datetime.now() - timedelta(days=days_back)
@@ -346,6 +399,9 @@ async def detect_spending_anomalies(
     try:
         # Prepare daily data for anomaly detection
         X, y, daily_data = forecaster.prepare_data(transaction_data)
+        
+        # Calculate threshold based on sensitivity
+        threshold_std = 3.0 - (sensitivity * 2.0)  # Convert sensitivity to std threshold
         
         # Detect anomalies
         anomaly_results = forecaster.detect_anomalies(daily_data, threshold_std)
@@ -395,8 +451,10 @@ async def detect_spending_anomalies(
             severity_breakdown=severity_breakdown
         )
 
-@router.get("/insights/monthly")
+@router.get("/insights")
 async def get_monthly_insights(
+    month: Optional[int] = Query(None, description="Month (1-12)"),
+    year: Optional[int] = Query(None, description="Year"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

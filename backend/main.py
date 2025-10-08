@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 
@@ -45,6 +46,14 @@ async def root():
 async def health_check():
     return {"status": "healthy", "message": "API is running"}
 
+@app.get("/metrics")
+async def metrics():
+    return {
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "uptime": "running"
+    }
+
 # Import and include routes after app initialization
 try:
     from app.routes import auth
@@ -59,6 +68,13 @@ try:
     print("✅ Transaction routes loaded")
 except Exception as e:
     print(f"⚠️ Transaction routes error: {e}")
+
+try:
+    from app.routes import budgets
+    app.include_router(budgets.router, prefix="/api/v1/budgets", tags=["budgets"])
+    print("✅ Budget routes loaded")
+except Exception as e:
+    print(f"⚠️ Budget routes error: {e}")
 
 try:
     from app.routes import analysis
@@ -80,10 +96,6 @@ try:
     print("✅ UPI routes loaded")
 except Exception as e:
     print(f"⚠️ UPI routes error: {e}")
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "API is running"}
 
 if __name__ == "__main__":
     import uvicorn

@@ -82,6 +82,15 @@ class AuthService {
     }
   }
 
+  async getCurrentUser() {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/v1/auth/me`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.detail || 'Failed to get current user');
+    }
+  }
+
   async changePassword(currentPassword, newPassword) {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/change-password`, {

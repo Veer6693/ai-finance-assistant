@@ -3,6 +3,47 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 class ApiService {
+  // Generic HTTP methods
+  async get(url, params = {}) {
+    try {
+      const response = await axios.get(`${API_BASE_URL}${url}`, { params });
+      return response.data;
+    } catch (error) {
+      console.error(`GET ${url} error:`, error);
+      throw new Error(error.response?.data?.detail || `Failed to fetch from ${url}`);
+    }
+  }
+
+  async post(url, data = {}) {
+    try {
+      const response = await axios.post(`${API_BASE_URL}${url}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`POST ${url} error:`, error);
+      throw new Error(error.response?.data?.detail || `Failed to post to ${url}`);
+    }
+  }
+
+  async put(url, data = {}) {
+    try {
+      const response = await axios.put(`${API_BASE_URL}${url}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`PUT ${url} error:`, error);
+      throw new Error(error.response?.data?.detail || `Failed to update ${url}`);
+    }
+  }
+
+  async delete(url) {
+    try {
+      const response = await axios.delete(`${API_BASE_URL}${url}`);
+      return response.data;
+    } catch (error) {
+      console.error(`DELETE ${url} error:`, error);
+      throw new Error(error.response?.data?.detail || `Failed to delete ${url}`);
+    }
+  }
+
   // Transactions
   async getTransactions(params = {}) {
     try {

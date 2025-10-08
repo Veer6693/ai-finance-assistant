@@ -4,7 +4,7 @@ export const aiService = {
   // Process natural language query
   async processQuery(query) {
     try {
-      const response = await apiService.post('/ai/process', { query });
+      const response = await apiService.post('/v1/ai/process', { query });
       return response;
     } catch (error) {
       console.error('Error processing AI query:', error);
@@ -15,7 +15,7 @@ export const aiService = {
   // Get AI query history
   async getQueryHistory(limit = 10) {
     try {
-      return await apiService.get(`/ai/history?limit=${limit}`);
+      return await apiService.get(`/v1/ai/history?limit=${limit}`);
     } catch (error) {
       console.error('Error fetching query history:', error);
       return [];
@@ -25,7 +25,7 @@ export const aiService = {
   // Get spending insights
   async getSpendingInsights(period = 'monthly') {
     try {
-      return await apiService.get(`/ai/insights/spending?period=${period}`);
+      return await apiService.get(`/v1/ai/insights/spending?period=${period}`);
     } catch (error) {
       console.error('Error fetching spending insights:', error);
       return {};
@@ -35,7 +35,7 @@ export const aiService = {
   // Get spending forecast
   async getSpendingForecast(months = 3) {
     try {
-      return await apiService.get(`/ai/forecast?months=${months}`);
+      return await apiService.get(`/v1/ai/forecast?months=${months}`);
     } catch (error) {
       console.error('Error fetching spending forecast:', error);
       return {};
@@ -45,7 +45,7 @@ export const aiService = {
   // Get budget recommendations from AI
   async getBudgetRecommendations() {
     try {
-      return await apiService.get('/ai/recommendations/budget');
+      return await apiService.get('/v1/ai/recommendations/budget');
     } catch (error) {
       console.error('Error fetching AI budget recommendations:', error);
       return [];

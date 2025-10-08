@@ -124,7 +124,7 @@ async def get_transactions(
 ):
     """Get user transactions with filtering and pagination"""
     
-    query = db.query(FinanceTransaction).filter(FinanceFinanceTransaction.user_id == current_user.id)
+    query = db.query(FinanceTransaction).filter(FinanceTransaction.user_id == current_user.id)
     
     # Apply filters
     if category:
@@ -356,7 +356,7 @@ async def generate_demo_transactions(
     # Save to database
     created_transactions = []
     for txn_data in transactions_data:
-        transaction = Transaction(
+        transaction = FinanceTransaction(
             user_id=txn_data["user_id"],
             transaction_id=txn_data["transaction_id"],
             amount=txn_data["amount"],
