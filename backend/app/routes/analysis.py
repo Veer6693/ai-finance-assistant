@@ -22,6 +22,7 @@ budget_optimizer = ContextualBudgetOptimizer()
 # Pydantic models
 class SpendingAnalysisResponse(BaseModel):
     total_spending: float
+    total_income: float
     category_breakdown: Dict[str, float]
     time_period: str
     daily_average: float
@@ -67,8 +68,8 @@ async def get_spending_analysis(
     if not end_date:
         end_date = datetime.now()
     
-    # Get transactions
-    query = db.query(FinanceTransaction).filter(
+    # Get expense transactions (debit)
+    expense_query = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
         FinanceTransaction.transaction_type == 'debit',
         FinanceTransaction.transaction_date >= start_date,
@@ -76,13 +77,27 @@ async def get_spending_analysis(
     )
     
     if category:
-        query = query.filter(FinanceTransaction.ai_category == category)
+        expense_query = expense_query.filter(FinanceTransaction.ai_category == category)
     
-    transactions = query.all()
+    expense_transactions = expense_query.all()
     
-    if not transactions:
+    # Get income transactions (credit)
+    income_query = db.query(FinanceTransaction).filter(
+        FinanceTransaction.user_id == current_user.id,
+        FinanceTransaction.transaction_type == 'credit',
+        FinanceTransaction.transaction_date >= start_date,
+        FinanceTransaction.transaction_date <= end_date
+    )
+    
+    income_transactions = income_query.all()
+    
+    # Calculate total income
+    total_income = sum(t.amount for t in income_transactions)
+    
+    if not expense_transactions and not income_transactions:
         return SpendingAnalysisResponse(
             total_spending=0.0,
+            total_income=0.0,
             category_breakdown={},
             time_period=f"{start_date.date()} to {end_date.date()}",
             daily_average=0.0,
@@ -91,22 +106,22 @@ async def get_spending_analysis(
         )
     
     # Calculate metrics
-    total_spending = sum(t.amount for t in transactions)
+    total_spending = sum(t.amount for t in expense_transactions)
     days_in_period = (end_date - start_date).days + 1
     daily_average = total_spending / days_in_period
     
-    # Category breakdown
+    # Category breakdown (expenses only)
     category_breakdown = {}
-    for transaction in transactions:
+    for transaction in expense_transactions:
         cat = transaction.ai_category or 'other'
         category_breakdown[cat] = category_breakdown.get(cat, 0) + transaction.amount
     
-    # Trend analysis
+    # Trend analysis (using expense transactions)
     df = pd.DataFrame([{
         'amount': t.amount,
         'date': t.transaction_date.date(),
         'days_from_start': (t.transaction_date.date() - start_date.date()).days
-    } for t in transactions])
+    } for t in expense_transactions])
     
     trend_correlation = df['amount'].corr(df['days_from_start']) if len(df) > 1 else 0
     trend_direction = "increasing" if trend_correlation > 0.1 else "decreasing" if trend_correlation < -0.1 else "stable"
@@ -124,27 +139,43 @@ async def get_spending_analysis(
         prev_start = start_date - period_length
         prev_end = start_date
         
-        prev_transactions = db.query(FinanceTransaction).filter(
+        # Previous expenses
+        prev_expense_transactions = db.query(FinanceTransaction).filter(
             FinanceTransaction.user_id == current_user.id,
             FinanceTransaction.transaction_type == 'debit',
             FinanceTransaction.transaction_date >= prev_start,
             FinanceTransaction.transaction_date < prev_end
         ).all()
         
-        if prev_transactions:
-            prev_total = sum(t.amount for t in prev_transactions)
-            change_amount = total_spending - prev_total
-            change_percentage = (change_amount / prev_total * 100) if prev_total > 0 else 0
+        # Previous income
+        prev_income_transactions = db.query(FinanceTransaction).filter(
+            FinanceTransaction.user_id == current_user.id,
+            FinanceTransaction.transaction_type == 'credit',
+            FinanceTransaction.transaction_date >= prev_start,
+            FinanceTransaction.transaction_date < prev_end
+        ).all()
+        
+        if prev_expense_transactions or prev_income_transactions:
+            prev_total_spending = sum(t.amount for t in prev_expense_transactions)
+            prev_total_income = sum(t.amount for t in prev_income_transactions)
+            change_amount = total_spending - prev_total_spending
+            change_percentage = (change_amount / prev_total_spending * 100) if prev_total_spending > 0 else 0
+            income_change = total_income - prev_total_income
+            income_change_percentage = (income_change / prev_total_income * 100) if prev_total_income > 0 else 0
             
             comparison = {
-                "previous_total": prev_total,
-                "change_amount": change_amount,
-                "change_percentage": change_percentage,
+                "previous_total_spending": prev_total_spending,
+                "previous_total_income": prev_total_income,
+                "spending_change_amount": change_amount,
+                "spending_change_percentage": change_percentage,
+                "income_change_amount": income_change,
+                "income_change_percentage": income_change_percentage,
                 "period": f"{prev_start.date()} to {prev_end.date()}"
             }
     
     return SpendingAnalysisResponse(
         total_spending=total_spending,
+        total_income=total_income,
         category_breakdown=category_breakdown,
         time_period=f"{start_date.date()} to {end_date.date()}",
         daily_average=daily_average,

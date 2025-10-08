@@ -113,9 +113,9 @@ const Dashboard = ({ user }) => {
   };
 
   const getCategorySpendingData = () => {
-    if (!dashboardData?.spendingAnalysis?.category_spending) return null;
+    if (!dashboardData?.spendingAnalysis?.category_breakdown) return null;
 
-    const categoryData = dashboardData.spendingAnalysis.category_spending;
+    const categoryData = dashboardData.spendingAnalysis.category_breakdown;
     const labels = Object.keys(categoryData);
     const data = Object.values(categoryData);
 
@@ -125,7 +125,10 @@ const Dashboard = ({ user }) => {
     ];
 
     return {
-      labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+      labels: labels.map(label => {
+        const safeLabel = label || 'Unknown';
+        return safeLabel.charAt(0).toUpperCase() + safeLabel.slice(1);
+      }),
       datasets: [
         {
           data,
@@ -138,12 +141,15 @@ const Dashboard = ({ user }) => {
   };
 
   const getBudgetPerformanceData = () => {
-    if (!dashboardData?.budgetPerformance) return null;
+    if (!dashboardData?.budgetPerformance || !Array.isArray(dashboardData.budgetPerformance)) return null;
 
     const budgets = dashboardData.budgetPerformance;
-    const labels = budgets.map(b => b.category.charAt(0).toUpperCase() + b.category.slice(1));
-    const allocated = budgets.map(b => b.allocated);
-    const actual = budgets.map(b => b.actual);
+    const labels = budgets.map(b => {
+      const name = b.budget_name || b.name || 'Unknown Budget';
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    });
+    const allocated = budgets.map(b => b.allocated_amount || b.allocated || 0);
+    const actual = budgets.map(b => b.spent_amount || b.actual || 0);
 
     return {
       labels,

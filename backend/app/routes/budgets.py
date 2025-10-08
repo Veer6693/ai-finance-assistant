@@ -58,23 +58,23 @@ async def get_budgets(
         # Calculate spent amount from transactions
         spent_amount = db.query(FinanceTransaction).filter(
             FinanceTransaction.user_id == current_user.id,
-            FinanceTransaction.category == budget.category,
+            FinanceTransaction.ai_category == budget.category,
             FinanceTransaction.transaction_date >= budget.start_date,
             FinanceTransaction.transaction_date <= budget.end_date
         ).with_entities(FinanceTransaction.amount).all()
         
         total_spent = sum([abs(amount[0]) for amount in spent_amount]) if spent_amount else 0
-        remaining = budget.amount - total_spent
-        utilization = (total_spent / budget.amount * 100) if budget.amount > 0 else 0
+        remaining = budget.allocated_amount - total_spent
+        utilization = (total_spent / budget.allocated_amount * 100) if budget.allocated_amount > 0 else 0
         
         budget_responses.append(BudgetResponse(
             id=budget.id,
             name=budget.name,
             category=budget.category,
-            amount=budget.amount,
+            amount=budget.allocated_amount,
             spent_amount=total_spent,
             remaining_amount=remaining,
-            period=budget.period,
+            period=budget.budget_type,
             start_date=budget.start_date,
             end_date=budget.end_date,
             is_active=budget.is_active,
@@ -109,8 +109,8 @@ async def create_budget(
         user_id=current_user.id,
         name=budget_data.name,
         category=budget_data.category,
-        amount=budget_data.amount,
-        period=budget_data.period,
+        allocated_amount=budget_data.amount,
+        budget_type=budget_data.period,
         start_date=budget_data.start_date,
         end_date=budget_data.end_date,
         is_active=True
@@ -124,10 +124,10 @@ async def create_budget(
         id=budget.id,
         name=budget.name,
         category=budget.category,
-        amount=budget.amount,
-        spent_amount=0,
-        remaining_amount=budget.amount,
-        period=budget.period,
+        amount=budget.allocated_amount,
+        spent_amount=budget.spent_amount or 0,
+        remaining_amount=budget.allocated_amount - (budget.spent_amount or 0),
+        period=budget.budget_type,
         start_date=budget.start_date,
         end_date=budget.end_date,
         is_active=budget.is_active,
@@ -152,23 +152,23 @@ async def get_budget(
     # Calculate spent amount
     spent_amount = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
-        FinanceTransaction.category == budget.category,
+        FinanceTransaction.ai_category == budget.category,
         FinanceTransaction.transaction_date >= budget.start_date,
         FinanceTransaction.transaction_date <= budget.end_date
     ).with_entities(FinanceTransaction.amount).all()
     
     total_spent = sum([abs(amount[0]) for amount in spent_amount]) if spent_amount else 0
-    remaining = budget.amount - total_spent
-    utilization = (total_spent / budget.amount * 100) if budget.amount > 0 else 0
+    remaining = budget.allocated_amount - total_spent
+    utilization = (total_spent / budget.allocated_amount * 100) if budget.allocated_amount > 0 else 0
     
     return BudgetResponse(
         id=budget.id,
         name=budget.name,
         category=budget.category,
-        amount=budget.amount,
+        amount=budget.allocated_amount,
         spent_amount=total_spent,
         remaining_amount=remaining,
-        period=budget.period,
+        period=budget.budget_type,
         start_date=budget.start_date,
         end_date=budget.end_date,
         is_active=budget.is_active,
@@ -197,9 +197,9 @@ async def update_budget(
     if budget_data.category is not None:
         budget.category = budget_data.category
     if budget_data.amount is not None:
-        budget.amount = budget_data.amount
+        budget.allocated_amount = budget_data.amount
     if budget_data.period is not None:
-        budget.period = budget_data.period
+        budget.budget_type = budget_data.period
     if budget_data.start_date is not None:
         budget.start_date = budget_data.start_date
     if budget_data.end_date is not None:
@@ -213,23 +213,23 @@ async def update_budget(
     # Calculate spent amount
     spent_amount = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
-        FinanceTransaction.category == budget.category,
+        FinanceTransaction.ai_category == budget.category,
         FinanceTransaction.transaction_date >= budget.start_date,
         FinanceTransaction.transaction_date <= budget.end_date
     ).with_entities(FinanceTransaction.amount).all()
     
     total_spent = sum([abs(amount[0]) for amount in spent_amount]) if spent_amount else 0
-    remaining = budget.amount - total_spent
-    utilization = (total_spent / budget.amount * 100) if budget.amount > 0 else 0
+    remaining = budget.allocated_amount - total_spent
+    utilization = (total_spent / budget.allocated_amount * 100) if budget.allocated_amount > 0 else 0
     
     return BudgetResponse(
         id=budget.id,
         name=budget.name,
         category=budget.category,
-        amount=budget.amount,
+        amount=budget.allocated_amount,
         spent_amount=total_spent,
         remaining_amount=remaining,
-        period=budget.period,
+        period=budget.budget_type,
         start_date=budget.start_date,
         end_date=budget.end_date,
         is_active=budget.is_active,
@@ -274,7 +274,7 @@ async def get_budget_performance(
     # Get all transactions for this budget category
     transactions = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
-        FinanceTransaction.category == budget.category,
+        FinanceTransaction.ai_category == budget.category,
         FinanceTransaction.transaction_date >= budget.start_date,
         FinanceTransaction.transaction_date <= budget.end_date
     ).all()
@@ -296,14 +296,14 @@ async def get_budget_performance(
     return {
         "budget_id": budget.id,
         "budget_name": budget.name,
-        "allocated_amount": budget.amount,
+        "allocated_amount": budget.allocated_amount,
         "spent_amount": total_spent,
-        "remaining_amount": budget.amount - total_spent,
-        "utilization_percentage": (total_spent / budget.amount * 100) if budget.amount > 0 else 0,
+        "remaining_amount": budget.allocated_amount - total_spent,
+        "utilization_percentage": (total_spent / budget.allocated_amount * 100) if budget.allocated_amount > 0 else 0,
         "days_passed": days_passed,
         "days_remaining": max(0, days_total - days_passed),
         "projected_spending": projected_spending,
-        "is_over_budget": projected_spending > budget.amount,
+        "is_over_budget": projected_spending > budget.allocated_amount,
         "daily_spending": daily_spending,
         "average_daily_spending": total_spent / days_passed if days_passed > 0 else 0
     }

@@ -5,7 +5,7 @@ export const transactionService = {
   async getTransactions(params = {}) {
     try {
       const queryParams = new URLSearchParams(params).toString();
-      const url = queryParams ? `/v1/transactions?${queryParams}` : '/v1/transactions';
+      const url = queryParams ? `/transactions?${queryParams}` : '/transactions';
       return await apiService.get(url);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -27,7 +27,7 @@ export const transactionService = {
   // Create a new transaction
   async createTransaction(transactionData) {
     try {
-      return await apiService.post('/v1/transactions', transactionData);
+      return await apiService.post('/transactions', transactionData);
     } catch (error) {
       console.error('Error creating transaction:', error);
       throw error;
@@ -37,7 +37,7 @@ export const transactionService = {
   // Update an existing transaction
   async updateTransaction(id, transactionData) {
     try {
-      return await apiService.put(`/v1/transactions/${id}`, transactionData);
+      return await apiService.put(`/transactions/${id}`, transactionData);
     } catch (error) {
       console.error('Error updating transaction:', error);
       throw error;
@@ -47,7 +47,7 @@ export const transactionService = {
   // Delete a transaction
   async deleteTransaction(id) {
     try {
-      return await apiService.delete(`/v1/transactions/${id}`);
+      return await apiService.delete(`/transactions/${id}`);
     } catch (error) {
       console.error('Error deleting transaction:', error);
       throw error;

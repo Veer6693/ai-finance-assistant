@@ -20,7 +20,11 @@ class ApiService {
       return response.data;
     } catch (error) {
       console.error(`POST ${url} error:`, error);
-      throw new Error(error.response?.data?.detail || `Failed to post to ${url}`);
+      const errorMessage = error.response?.data?.detail || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          `Failed to post to ${url}`;
+      throw new Error(errorMessage);
     }
   }
 

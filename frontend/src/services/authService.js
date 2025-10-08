@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 class AuthService {
   constructor() {
@@ -84,7 +84,7 @@ class AuthService {
 
   async getCurrentUser() {
     try {
-      const response = await axios.get(`${API_BASE_URL}/v1/auth/me`);
+      const response = await axios.get(`${API_BASE_URL}/auth/me`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to get current user');

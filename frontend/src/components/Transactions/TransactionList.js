@@ -9,20 +9,20 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  IconButton,
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  IconButton,
   Alert,
-  CircularProgress,
+  CircularProgress
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -64,23 +64,36 @@ const TransactionList = () => {
     try {
       setLoading(true);
       const data = await transactionService.getTransactions();
-      setTransactions(data || []);
+      // Handle the response structure: { transactions: [...], total: n, page: n, ... }
+      if (data && Array.isArray(data.transactions)) {
+        setTransactions(data.transactions);
+      } else if (Array.isArray(data)) {
+        // Fallback if API returns array directly
+        setTransactions(data);
+      } else {
+        setTransactions([]);
+      }
     } catch (err) {
       setError('Failed to load transactions');
+      setTransactions([]); // Ensure transactions is always an array
       console.error('Error loading transactions:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddTransaction = () => {
-    setEditingTransaction(null);
+  const resetForm = () => {
     setFormData({
       description: '',
       amount: '',
       category: '',
       type: 'expense',
     });
+    setEditingTransaction(null);
+  };
+
+  const handleAddTransaction = () => {
+    resetForm();
     setOpenDialog(true);
   };
 
@@ -89,8 +102,8 @@ const TransactionList = () => {
     setFormData({
       description: transaction.description || '',
       amount: transaction.amount || '',
-      category: transaction.category || '',
-      type: transaction.type || 'expense',
+      category: transaction.ai_category || transaction.merchant_category || '',
+      type: transaction.transaction_type === 'credit' ? 'income' : 'expense',
     });
     setOpenDialog(true);
   };
@@ -108,14 +121,26 @@ const TransactionList = () => {
 
   const handleSaveTransaction = async () => {
     try {
+      // Map frontend fields to backend expected fields
+      const transactionData = {
+        amount: parseFloat(formData.amount),
+        transaction_type: formData.type === 'expense' ? 'debit' : 'credit',
+        description: formData.description,
+        merchant_name: formData.description, // Use description as merchant name if not provided
+        merchant_category: formData.category,
+        transaction_date: new Date().toISOString()
+      };
+
       if (editingTransaction) {
-        await transactionService.updateTransaction(editingTransaction.id, formData);
+        await transactionService.updateTransaction(editingTransaction.transaction_id, transactionData);
       } else {
-        await transactionService.createTransaction(formData);
+        await transactionService.createTransaction(transactionData);
       }
       setOpenDialog(false);
+      resetForm();
       loadTransactions();
     } catch (err) {
+      console.error('Transaction save error:', err);
       setError('Failed to save transaction');
     }
   };
@@ -186,7 +211,7 @@ const TransactionList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {transactions.length === 0 ? (
+            {!Array.isArray(transactions) || transactions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} align="center">
                   <Typography variant="body2" color="textSecondary">
@@ -200,28 +225,28 @@ const TransactionList = () => {
                   <TableCell>{transaction.description}</TableCell>
                   <TableCell>
                     <Typography
-                      color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                      color={transaction.transaction_type === 'credit' ? 'success.main' : 'error.main'}
                       fontWeight="medium"
                     >
-                      {formatAmount(transaction.amount, transaction.type)}
+                      {formatAmount(transaction.amount, transaction.transaction_type === 'credit' ? 'income' : 'expense')}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={transaction.category}
-                      color={getCategoryColor(transaction.category)}
+                      label={transaction.ai_category || transaction.merchant_category || 'Uncategorized'}
+                      color={getCategoryColor(transaction.ai_category || transaction.merchant_category)}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={transaction.type}
+                      label={transaction.transaction_type === 'credit' ? 'Income' : 'Expense'}
                       variant="outlined"
                       size="small"
                     />
                   </TableCell>
                   <TableCell>
-                    {new Date(transaction.date || transaction.created_at).toLocaleDateString()}
+                    {new Date(transaction.transaction_date).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <IconButton
@@ -232,7 +257,7 @@ const TransactionList = () => {
                     </IconButton>
                     <IconButton
                       size="small"
-                      onClick={() => handleDeleteTransaction(transaction.id)}
+                      onClick={() => handleDeleteTransaction(transaction.transaction_id)}
                     >
                       <DeleteIcon />
                     </IconButton>

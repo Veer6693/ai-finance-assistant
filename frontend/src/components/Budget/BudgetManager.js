@@ -65,9 +65,17 @@ const BudgetManager = () => {
     try {
       setLoading(true);
       const data = await budgetService.getBudgets();
-      setBudgets(data || []);
+      // Handle the response structure in case API returns { budgets: [...] } or just [...]
+      if (data && Array.isArray(data.budgets)) {
+        setBudgets(data.budgets);
+      } else if (Array.isArray(data)) {
+        setBudgets(data);
+      } else {
+        setBudgets([]);
+      }
     } catch (err) {
       setError('Failed to load budgets');
+      setBudgets([]); // Ensure budgets is always an array
       console.error('Error loading budgets:', err);
     } finally {
       setLoading(false);
@@ -96,10 +104,18 @@ const BudgetManager = () => {
 
   const handleSaveBudget = async () => {
     try {
+      // Map frontend fields to backend expected fields
+      const budgetData = {
+        name: editingBudget ? editingBudget.name : `${formData.category} Budget`, // Keep existing name or generate new one
+        category: formData.category,
+        amount: parseFloat(formData.amount),
+        period: formData.period,
+      };
+
       if (editingBudget) {
-        await budgetService.updateBudget(editingBudget.id, formData);
+        await budgetService.updateBudget(editingBudget.id, budgetData);
       } else {
-        await budgetService.createBudget(formData);
+        await budgetService.createBudget(budgetData);
       }
       setOpenDialog(false);
       loadBudgets();
@@ -166,7 +182,7 @@ const BudgetManager = () => {
         </Alert>
       )}
 
-      {budgets.length === 0 ? (
+      {!Array.isArray(budgets) || budgets.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" color="textSecondary" gutterBottom>
             No budgets created yet

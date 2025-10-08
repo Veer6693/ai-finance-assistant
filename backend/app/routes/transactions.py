@@ -185,6 +185,48 @@ async def get_transaction(
     
     return TransactionResponse.from_orm(transaction)
 
+@router.put("/{transaction_id}", response_model=TransactionResponse)
+async def update_transaction(
+    transaction_id: str,
+    transaction_data: TransactionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update a transaction"""
+    
+    transaction = db.query(FinanceTransaction).filter(
+        FinanceTransaction.transaction_id == transaction_id,
+        FinanceTransaction.user_id == current_user.id
+    ).first()
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Update transaction fields
+    for field, value in transaction_data.dict(exclude_unset=True).items():
+        if hasattr(transaction, field):
+            setattr(transaction, field, value)
+    
+    # Re-categorize with AI if description or merchant changed
+    if hasattr(transaction_data, 'description') or hasattr(transaction_data, 'merchant_name'):
+        try:
+            ai_result = categorizer.categorize_transaction(
+                description=transaction.description,
+                merchant=transaction.merchant_name,
+                amount=transaction.amount
+            )
+            
+            transaction.ai_category = ai_result.get('category')
+            transaction.ai_subcategory = ai_result.get('subcategory')
+            transaction.confidence_score = ai_result.get('confidence', 0.0)
+        except Exception as e:
+            print(f"AI categorization failed: {e}")
+    
+    db.commit()
+    db.refresh(transaction)
+    
+    return TransactionResponse.from_orm(transaction)
+
 @router.put("/{transaction_id}/category")
 async def update_transaction_category(
     transaction_id: str,
