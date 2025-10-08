@@ -77,11 +77,30 @@ async def create_transaction(
     import uuid
     transaction_id = f"TXN{uuid.uuid4().hex[:10].upper()}"
     
-    # Use AI categorization
+    # Use AI categorization if no manual category provided
     transaction_dict = transaction_data.dict()
     transaction_dict["transaction_id"] = transaction_id
     
-    category, confidence = categorizer.predict_category(transaction_dict)
+    # Only use AI categorization if user didn't provide a category
+    if not transaction_data.merchant_category or transaction_data.merchant_category.strip() == '':
+        try:
+            category, confidence = categorizer.predict_category(transaction_dict)
+            # Ensure we have a valid category
+            if not category or category.strip() == '':
+                category = 'other'
+            if confidence is None or confidence < 0:
+                confidence = 0.1
+        except Exception as e:
+            print(f"Error in categorization: {e}")
+            category = 'other'
+            confidence = 0.1
+    else:
+        # User provided a category, still run AI for learning but don't override
+        try:
+            ai_category, confidence = categorizer.predict_category(transaction_dict)
+        except Exception as e:
+            ai_category, confidence = 'other', 0.1
+        category = ai_category  # Store AI prediction in ai_category field
     
     # Create transaction
     new_transaction = FinanceTransaction(
@@ -234,8 +253,7 @@ async def update_transaction_category(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update transaction category (user feedback for ML)"""
-    
+    """Update transaction category manually"""
     transaction = db.query(FinanceTransaction).filter(
         FinanceTransaction.transaction_id == transaction_id,
         FinanceTransaction.user_id == current_user.id
@@ -244,17 +262,39 @@ async def update_transaction_category(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
-    # Update category
-    transaction.user_confirmed_category = category
-    transaction.ai_category = category  # Also update AI category for consistency
-    transaction.confidence_score = 1.0  # Max confidence for user-confirmed
+    # Update the merchant_category (user-selected category)
+    transaction.merchant_category = category
+    db.commit()
+    
+    return {"message": "Category updated successfully", "transaction_id": transaction_id, "category": category}
+
+@router.post("/bulk-update-categories")
+async def bulk_update_transaction_categories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Bulk update existing transactions with default categories"""
+    transactions = db.query(FinanceTransaction).filter(
+        FinanceTransaction.user_id == current_user.id,
+        FinanceTransaction.merchant_category.is_(None)
+    ).all()
+    
+    updated_count = 0
+    for transaction in transactions:
+        # Set a default category based on transaction type
+        if transaction.transaction_type == 'credit':
+            transaction.merchant_category = 'income'
+        else:
+            # For expenses without meaningful description, set to 'other'
+            transaction.merchant_category = 'other'
+        updated_count += 1
     
     db.commit()
     
-    # Update categorizer with feedback (for future improvement)
-    categorizer.update_model_with_feedback(transaction_id, category)
-    
-    return {"message": "Category updated successfully"}
+    return {
+        "message": f"Updated {updated_count} transactions with default categories",
+        "updated_count": updated_count
+    }
 
 @router.delete("/{transaction_id}")
 async def delete_transaction(

@@ -37,6 +37,7 @@ import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 
 import { apiService } from '../services/apiService';
+import { authService } from '../services/authService';
 
 // Register Chart.js components
 ChartJS.register(
@@ -51,14 +52,46 @@ ChartJS.register(
   BarElement
 );
 
-const Dashboard = ({ user }) => {
+const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+
+  // Map backend categories to frontend display categories
+  const mapBackendCategoryToDisplay = (backendCategory) => {
+    const categoryMap = {
+      'food': 'Food & Dining',
+      'groceries': 'Food & Dining',
+      'transport': 'Transportation', 
+      'shopping': 'Shopping',
+      'entertainment': 'Entertainment',
+      'bills': 'Bills & Utilities',
+      'healthcare': 'Healthcare',
+      'investment': 'Investment',
+      'education': 'Other',
+      'income': 'Income',
+      'other': 'Other'
+    };
+    
+    return categoryMap[backendCategory?.toLowerCase()] || backendCategory || 'Other';
+  };
 
   useEffect(() => {
     loadDashboardData();
+    loadUserData();
   }, []);
+
+  const loadUserData = async () => {
+    try {
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+    } catch (err) {
+      console.error('Failed to load user data:', err);
+      // Set a default user object to prevent errors
+      setUser({ username: 'User', email: 'user@example.com' });
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -116,8 +149,16 @@ const Dashboard = ({ user }) => {
     if (!dashboardData?.spendingAnalysis?.category_breakdown) return null;
 
     const categoryData = dashboardData.spendingAnalysis.category_breakdown;
-    const labels = Object.keys(categoryData);
-    const data = Object.values(categoryData);
+    
+    // Map backend categories to display categories and aggregate
+    const mappedData = {};
+    Object.entries(categoryData).forEach(([backendCategory, amount]) => {
+      const displayCategory = mapBackendCategoryToDisplay(backendCategory);
+      mappedData[displayCategory] = (mappedData[displayCategory] || 0) + amount;
+    });
+    
+    const labels = Object.keys(mappedData);
+    const data = Object.values(mappedData);
 
     const backgroundColors = [
       '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
@@ -125,10 +166,7 @@ const Dashboard = ({ user }) => {
     ];
 
     return {
-      labels: labels.map(label => {
-        const safeLabel = label || 'Unknown';
-        return safeLabel.charAt(0).toUpperCase() + safeLabel.slice(1);
-      }),
+      labels,
       datasets: [
         {
           data,
@@ -246,7 +284,7 @@ const Dashboard = ({ user }) => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" fontWeight="bold">
-          Welcome back, {user?.full_name || user?.email}!
+          Welcome back, {user?.full_name || user?.username || user?.email || 'User'}!
         </Typography>
         <IconButton onClick={loadDashboardData} disabled={loading}>
           <RefreshIcon />

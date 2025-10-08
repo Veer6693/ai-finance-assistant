@@ -46,7 +46,7 @@ const TransactionList = () => {
 
   const categories = [
     'Food & Dining',
-    'Transportation',
+    'Transportation', 
     'Shopping',
     'Entertainment',
     'Bills & Utilities',
@@ -55,6 +55,42 @@ const TransactionList = () => {
     'Income',
     'Other'
   ];
+
+  // Map backend categories to frontend display categories
+  const mapBackendCategoryToDisplay = (backendCategory) => {
+    const categoryMap = {
+      'food': 'Food & Dining',
+      'groceries': 'Food & Dining', 
+      'transport': 'Transportation',
+      'shopping': 'Shopping',
+      'entertainment': 'Entertainment',
+      'bills': 'Bills & Utilities',
+      'healthcare': 'Healthcare',
+      'investment': 'Investment',
+      'education': 'Other',
+      'income': 'Income',
+      'other': 'Other'
+    };
+    
+    return categoryMap[backendCategory?.toLowerCase()] || backendCategory || 'Other';
+  };
+
+  // Map frontend display categories to backend categories
+  const mapDisplayCategoryToBackend = (displayCategory) => {
+    const categoryMap = {
+      'Food & Dining': 'food',
+      'Transportation': 'transport',
+      'Shopping': 'shopping', 
+      'Entertainment': 'entertainment',
+      'Bills & Utilities': 'bills',
+      'Healthcare': 'healthcare',
+      'Investment': 'investment',
+      'Income': 'income',
+      'Other': 'other'
+    };
+    
+    return categoryMap[displayCategory] || 'other';
+  };
 
   useEffect(() => {
     loadTransactions();
@@ -102,7 +138,7 @@ const TransactionList = () => {
     setFormData({
       description: transaction.description || '',
       amount: transaction.amount || '',
-      category: transaction.ai_category || transaction.merchant_category || '',
+      category: mapBackendCategoryToDisplay(transaction.merchant_category || transaction.ai_category) || '',
       type: transaction.transaction_type === 'credit' ? 'income' : 'expense',
     });
     setOpenDialog(true);
@@ -127,7 +163,7 @@ const TransactionList = () => {
         transaction_type: formData.type === 'expense' ? 'debit' : 'credit',
         description: formData.description,
         merchant_name: formData.description, // Use description as merchant name if not provided
-        merchant_category: formData.category,
+        merchant_category: mapDisplayCategoryToBackend(formData.category),
         transaction_date: new Date().toISOString()
       };
 
@@ -233,8 +269,8 @@ const TransactionList = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={transaction.ai_category || transaction.merchant_category || 'Uncategorized'}
-                      color={getCategoryColor(transaction.ai_category || transaction.merchant_category)}
+                      label={mapBackendCategoryToDisplay(transaction.merchant_category || transaction.ai_category)}
+                      color={getCategoryColor(mapBackendCategoryToDisplay(transaction.merchant_category || transaction.ai_category))}
                       size="small"
                     />
                   </TableCell>

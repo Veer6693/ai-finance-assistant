@@ -200,6 +200,20 @@ class TransactionCategorizer:
                 if re.search(pattern, text, re.IGNORECASE):
                     return category, 0.85
         
+        # Simple fallback rules for common words
+        fallback_rules = {
+            'food': ['eat', 'meal', 'cafe', 'restaurant', 'kitchen'],
+            'transport': ['ride', 'drive', 'travel', 'trip', 'fare'],
+            'shopping': ['buy', 'purchase', 'store', 'shop', 'order'],
+            'bills': ['bill', 'recharge', 'payment', 'subscription'],
+            'entertainment': ['movie', 'game', 'fun', 'party', 'event']
+        }
+        
+        for category, keywords in fallback_rules.items():
+            for keyword in keywords:
+                if keyword in text:
+                    return category, 0.60
+        
         return None, 0.0
     
     def train_ml_model(self, transactions: List[Dict], labels: List[str]) -> Dict:

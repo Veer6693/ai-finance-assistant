@@ -137,7 +137,8 @@ const BudgetManager = () => {
 
   const calculateProgress = (spent, budgeted) => {
     if (!budgeted || budgeted === 0) return 0;
-    return Math.min((spent / budgeted) * 100, 100);
+    const progress = (spent / budgeted) * 100;
+    return Math.max(0, Math.min(progress, 100)); // Ensure value is between 0-100
   };
 
   const getProgressColor = (progress) => {
@@ -197,8 +198,19 @@ const BudgetManager = () => {
       ) : (
         <Grid container spacing={3}>
           {budgets.map((budget) => {
-            const progress = calculateProgress(budget.spent || 0, budget.amount);
-            const remaining = Math.max(budget.amount - (budget.spent || 0), 0);
+            const spentAmount = budget.spent_amount || 0;
+            const budgetAmount = budget.amount || 0;
+            const progress = calculateProgress(spentAmount, budgetAmount);
+            const remaining = Math.max(budgetAmount - spentAmount, 0);
+            
+            // Debug logging
+            console.log('Budget Debug:', {
+              name: budget.name || budget.category,
+              spentAmount,
+              budgetAmount,
+              progress,
+              remaining
+            });
             
             return (
               <Grid item xs={12} sm={6} md={4} key={budget.id}>
@@ -218,10 +230,10 @@ const BudgetManager = () => {
                     <Box mb={2}>
                       <Box display="flex" justifyContent="space-between" mb={1}>
                         <Typography variant="body2" color="textSecondary">
-                          Spent: {formatCurrency(budget.spent || 0)}
+                          Spent: {formatCurrency(spentAmount)}
                         </Typography>
                         <Typography variant="body2" color="textSecondary">
-                          Budget: {formatCurrency(budget.amount)}
+                          Budget: {formatCurrency(budgetAmount)}
                         </Typography>
                       </Box>
                       <LinearProgress

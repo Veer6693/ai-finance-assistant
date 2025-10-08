@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import datetime, timedelta
 from typing import List, Optional
 from pydantic import BaseModel
@@ -11,6 +12,44 @@ from app.routes.auth import get_current_user
 from app.database import get_db
 
 router = APIRouter()
+
+def get_category_variants(category):
+    """Get all possible category variants for flexible matching"""
+    category_variants = [category]
+    
+    # Mapping between display and backend categories
+    category_mapping = {
+        'Food & Dining': ['food', 'groceries'],
+        'Transportation': ['transport'], 
+        'Shopping': ['shopping'],
+        'Entertainment': ['entertainment'],
+        'Bills & Utilities': ['bills'],
+        'Healthcare': ['healthcare'],
+        'Investment': ['investment'],
+        'Income': ['income'],
+        'Other': ['other']
+    }
+    
+    reverse_mapping = {
+        'food': ['Food & Dining'],
+        'groceries': ['Food & Dining'],
+        'transport': ['Transportation'],
+        'shopping': ['Shopping'],
+        'entertainment': ['Entertainment'],
+        'bills': ['Bills & Utilities'],
+        'healthcare': ['Healthcare'],
+        'investment': ['Investment'],
+        'income': ['Income'],
+        'other': ['Other']
+    }
+    
+    # Add mapped variants
+    if category in category_mapping:
+        category_variants.extend(category_mapping[category])
+    if category in reverse_mapping:
+        category_variants.extend(reverse_mapping[category])
+    
+    return list(set(category_variants))
 
 # Pydantic models for request/response
 class BudgetCreate(BaseModel):
@@ -55,10 +94,16 @@ async def get_budgets(
     
     budget_responses = []
     for budget in budgets:
-        # Calculate spent amount from transactions
+        # Calculate spent amount from transactions using flexible category matching
+        category_variants = get_category_variants(budget.category)
+        
         spent_amount = db.query(FinanceTransaction).filter(
             FinanceTransaction.user_id == current_user.id,
-            FinanceTransaction.ai_category == budget.category,
+            FinanceTransaction.transaction_type == 'debit',  # Only expenses
+            or_(
+                FinanceTransaction.merchant_category.in_(category_variants),
+                FinanceTransaction.ai_category.in_(category_variants)
+            ),
             FinanceTransaction.transaction_date >= budget.start_date,
             FinanceTransaction.transaction_date <= budget.end_date
         ).with_entities(FinanceTransaction.amount).all()
@@ -149,10 +194,16 @@ async def get_budget(
     if not budget:
         raise HTTPException(status_code=404, detail="Budget not found")
     
-    # Calculate spent amount
+    # Calculate spent amount using flexible category matching
+    category_variants = get_category_variants(budget.category)
+    
     spent_amount = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
-        FinanceTransaction.ai_category == budget.category,
+        FinanceTransaction.transaction_type == 'debit',  # Only expenses
+        or_(
+            FinanceTransaction.merchant_category.in_(category_variants),
+            FinanceTransaction.ai_category.in_(category_variants)
+        ),
         FinanceTransaction.transaction_date >= budget.start_date,
         FinanceTransaction.transaction_date <= budget.end_date
     ).with_entities(FinanceTransaction.amount).all()
@@ -210,10 +261,16 @@ async def update_budget(
     db.commit()
     db.refresh(budget)
     
-    # Calculate spent amount
+    # Calculate spent amount using flexible category matching
+    category_variants = get_category_variants(budget.category)
+    
     spent_amount = db.query(FinanceTransaction).filter(
         FinanceTransaction.user_id == current_user.id,
-        FinanceTransaction.ai_category == budget.category,
+        FinanceTransaction.transaction_type == 'debit',  # Only expenses
+        or_(
+            FinanceTransaction.merchant_category.in_(category_variants),
+            FinanceTransaction.ai_category.in_(category_variants)
+        ),
         FinanceTransaction.transaction_date >= budget.start_date,
         FinanceTransaction.transaction_date <= budget.end_date
     ).with_entities(FinanceTransaction.amount).all()

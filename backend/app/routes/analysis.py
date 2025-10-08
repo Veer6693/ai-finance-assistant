@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
@@ -110,10 +111,11 @@ async def get_spending_analysis(
     days_in_period = (end_date - start_date).days + 1
     daily_average = total_spending / days_in_period
     
-    # Category breakdown (expenses only)
+    # Category breakdown (expenses only) - prioritize user-selected categories
     category_breakdown = {}
     for transaction in expense_transactions:
-        cat = transaction.ai_category or 'other'
+        # Use merchant_category (user-selected) first, then fall back to ai_category
+        cat = transaction.merchant_category or transaction.ai_category or 'other'
         category_breakdown[cat] = category_breakdown.get(cat, 0) + transaction.amount
     
     # Trend analysis (using expense transactions)
@@ -259,10 +261,57 @@ async def get_budget_performance(
     
     for budget in budgets:
         # Calculate actual spending for this budget category
+        # Need to check both merchant_category and ai_category, and handle category mapping
+        category_variants = []
+        
+        # Add the budget category as-is
+        category_variants.append(budget.category)
+        
+        # Add mapped variants (in case budget stores display format but transactions store backend format)
+        category_mapping = {
+            'Food & Dining': ['food', 'groceries'],
+            'Transportation': ['transport'],
+            'Shopping': ['shopping'],
+            'Entertainment': ['entertainment'], 
+            'Bills & Utilities': ['bills'],
+            'Healthcare': ['healthcare'],
+            'Investment': ['investment'],
+            'Income': ['income'],
+            'Other': ['other']
+        }
+        
+        # Add mapped backend categories if budget uses display format
+        if budget.category in category_mapping:
+            category_variants.extend(category_mapping[budget.category])
+        
+        # Also add reverse mapping (if budget uses backend format but transactions use display format)
+        reverse_mapping = {
+            'food': ['Food & Dining'],
+            'groceries': ['Food & Dining'],
+            'transport': ['Transportation'],
+            'shopping': ['Shopping'],
+            'entertainment': ['Entertainment'],
+            'bills': ['Bills & Utilities'],
+            'healthcare': ['Healthcare'],
+            'investment': ['Investment'],
+            'income': ['Income'],
+            'other': ['Other']
+        }
+        
+        if budget.category in reverse_mapping:
+            category_variants.extend(reverse_mapping[budget.category])
+        
+        # Remove duplicates
+        category_variants = list(set(category_variants))
+        
+        # Query transactions that match any of the category variants in either field
         actual_spent = db.query(FinanceTransaction).filter(
             FinanceTransaction.user_id == current_user.id,
             FinanceTransaction.transaction_type == 'debit',
-            FinanceTransaction.ai_category == budget.category,
+            or_(
+                FinanceTransaction.merchant_category.in_(category_variants),
+                FinanceTransaction.ai_category.in_(category_variants)
+            ),
             FinanceTransaction.transaction_date >= max(budget.start_date, current_month_start),
             FinanceTransaction.transaction_date <= min(budget.end_date, current_month_end)
         ).with_entities(FinanceTransaction.amount).all()
